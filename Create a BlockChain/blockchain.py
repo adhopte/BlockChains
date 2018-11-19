@@ -4,7 +4,7 @@ Created on Tue Nov  6 00:01:23 2018
 @author: Anoopdho
 """
 
-#Module 1 - Create a Blockchain
+#Creating a basic BlockChain
 
 #Importing the libraries
 import datetime
@@ -62,7 +62,7 @@ class BlockChain:
             block_index += 1            
         return True
     
-# Part 2 Mining our Blockchain
+#Mining our Blockchain
 
 # Creating a WebApp
 app = Flask(__name__)
