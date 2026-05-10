@@ -1,0 +1,5 @@
+flask>=3.0,<4
+cryptography>=42,<45
+qrcode[pil]>=7.4,<9
+Pillow>=10,<12
+watchdog>=4,<5
