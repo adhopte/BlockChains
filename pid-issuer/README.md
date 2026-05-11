@@ -311,6 +311,90 @@ netsh advfirewall firewall add rule name="PID Issuer" dir=in action=allow protoc
 
 ---
 
+## Troubleshooting
+
+### Step 1 — Run the environment checker first
+
+Double-click **`check_env.bat`** before anything else. It checks Python, pip, port availability, and your local IP, and tells you exactly what to fix.
+
+---
+
+### Window flashes and closes immediately
+
+The bat file is hitting an error before the `pause` at the bottom. Fix:
+
+1. Open a **Command Prompt** (search "cmd" in Start Menu)
+2. `cd` to the `pid-issuer` folder, e.g.:
+   ```bat
+   cd C:\Users\YourName\Downloads\BlockChains\pid-issuer
+   ```
+3. Run `run.bat` from there — the window stays open and you can read the error.
+
+---
+
+### Python not found
+
+1. Download Python 3.11+ from [python.org](https://www.python.org/downloads/)
+2. During installation **tick "Add Python to PATH"**
+3. After installing, open a new Command Prompt and run `python --version`
+4. Re-run `run.bat`
+
+---
+
+### Dependency install fails
+
+Run this manually in Command Prompt from the `pid-issuer` folder:
+
+```bat
+python -m pip install flask cryptography "qrcode[pil]" Pillow watchdog
+```
+
+If you get a permission error, try:
+
+```bat
+python -m pip install --user flask cryptography "qrcode[pil]" Pillow watchdog
+```
+
+---
+
+### Port 8080 already in use
+
+Edit `run.bat` and uncomment / change this line:
+
+```bat
+set ISSUER_PORT=8081
+```
+
+Then open `http://localhost:8081` manually.
+
+---
+
+### Browser opens but wallet can't connect
+
+The Android wallet connects over Wi-Fi — it needs the machine's **local network IP**, not `localhost`. The server prints it at startup:
+
+```
+Issuer URL : http://192.168.1.42:8080
+```
+
+If your phone can't reach it:
+1. Make sure phone and laptop are on the **same Wi-Fi network**
+2. Allow port 8080 through Windows Firewall (run as Administrator):
+   ```bat
+   netsh advfirewall firewall add rule name="PID Issuer" dir=in action=allow protocol=TCP localport=8080
+   ```
+
+---
+
+### QR code not appearing after dropping a file
+
+- The folder must match the structure exactly: `C:\icvs-local-exports\YYYYMMDD\<any-folder-name>\file.json`
+- The JSON `status` field must be `FINALIZED`, `APPROVED`, or `COMPLETE`
+- The watcher scans every 5 seconds — wait a moment
+- Check the terminal window for errors
+
+---
+
 ## File reference
 
 ```
