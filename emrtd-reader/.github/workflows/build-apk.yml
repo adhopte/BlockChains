@@ -1,0 +1,116 @@
+name: Build eMRTD Reader APK
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+      - master
+    paths:
+      - 'emrtd-reader/android/**'
+  pull_request:
+    paths:
+      - 'emrtd-reader/android/**'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('emrtd-reader/android/**/*.gradle*', 'emrtd-reader/android/**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - name: Generate debug keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore emrtd-reader/android/app/debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 \
+            -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Android Debug, O=Android, C=US"
+
+      - name: Make gradlew executable
+        run: chmod +x emrtd-reader/android/gradlew
+
+      - name: Build Debug APK
+        if: github.event.inputs.build_type != 'release'
+        working-directory: emrtd-reader/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Build Release APK
+        if: github.event.inputs.build_type == 'release'
+        working-directory: emrtd-reader/android
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Upload Debug APK
+        if: github.event.inputs.build_type != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: emrtd-reader-debug-${{ github.run_number }}
+          path: emrtd-reader/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload Release APK
+        if: github.event.inputs.build_type == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: emrtd-reader-release-${{ github.run_number }}
+          path: emrtd-reader/android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+
+  build-backend-image:
+    name: Build Backend Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: emrtd-reader/backend
+          push: false
+          tags: emrtd-validation-service:${{ github.run_number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test backend health endpoint
+        run: |
+          docker run -d --name emrtd-test -p 8000:8000 emrtd-validation-service:${{ github.run_number }}
+          sleep 10
+          curl -f http://localhost:8000/health && echo "Health check PASSED"
+          docker stop emrtd-test
