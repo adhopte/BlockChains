@@ -9,7 +9,7 @@ import base64
 import hashlib
 import secrets
 import time
-from datetime import date
+from datetime import date, datetime, timezone
 
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes, serialization
@@ -100,7 +100,7 @@ def build_pid_sd_jwt(
     now = int(time.time())
     today = date.today()
     exp_date = date(today.year + validity_years, today.month, today.day)
-    exp = int(exp_date.strftime("%s")) if hasattr(exp_date, "strftime") else now + validity_years * 365 * 86400
+    exp = int(datetime(exp_date.year, exp_date.month, exp_date.day, tzinfo=timezone.utc).timestamp())
 
     # Build disclosures for every SD claim that has a non-None value
     disclosures: list[str] = []
