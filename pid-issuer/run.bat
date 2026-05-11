@@ -104,23 +104,29 @@ echo  Virtual environment ready.
 REM ── Step 3: Install dependencies ─────────────────────────────
 echo [3/4] Installing dependencies (first run may take 1-2 minutes)...
 
-python -m pip install --upgrade pip --quiet
-if errorlevel 1 echo  Warning: could not upgrade pip, continuing...
+python -m pip install --upgrade pip --quiet 2>nul
+python -m pip install -r requirements.txt --quiet 2>nul
 
-python -m pip install -r requirements.txt
+REM pip exit codes are unreliable on Windows - verify imports directly instead
+python -c "import flask, cryptography, qrcode, PIL, watchdog" >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo  ERROR: Failed to install dependencies.
+    echo  Some packages are missing. Retrying with verbose output...
     echo.
-    echo  Common fixes:
-    echo    1. Check your internet connection
-    echo    2. Run as Administrator (right-click this file)
-    echo    3. Try manually: pip install flask cryptography qrcode[pil] watchdog
-    echo.
-    pause
-    exit /b 1
+    python -m pip install -r requirements.txt
+    python -c "import flask, cryptography, qrcode, PIL, watchdog" >nul 2>&1
+    if errorlevel 1 (
+        echo.
+        echo  ERROR: Could not import required packages after install.
+        echo.
+        echo  Try running this command manually in Command Prompt:
+        echo    pip install flask cryptography "qrcode[pil]" Pillow watchdog
+        echo.
+        pause
+        exit /b 1
+    )
 )
-echo  Dependencies installed.
+echo  Dependencies OK.
 
 REM ── Step 4: Check port ───────────────────────────────────────
 echo [4/4] Checking port %ISSUER_PORT%...
