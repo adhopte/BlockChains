@@ -359,7 +359,7 @@ def index():
         recent = sorted(
             offers.values(), key=lambda o: o["issued_at"], reverse=True
         )[:10]
-    return render_template("index.html", offers=recent, issuer_url=ISSUER_URL)
+    return render_template("index.html", offers=recent, issuer_url=ISSUER_URL, watch_path=str(WATCH_PATH))
 
 
 @app.route("/events")
