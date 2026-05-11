@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EU PID Issuer Station</title>
+  <style>
+    :root {
+      --eu-blue: #003399;
+      --eu-yellow: #FFCC00;
+      --green: #27ae60;
+      --orange: #e67e22;
+      --red: #e74c3c;
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--eu-blue);
+      border-bottom: 4px solid var(--eu-yellow);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .eu-stars {
+      font-size: 22px;
+      letter-spacing: -2px;
+    }
+    header h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    header .subtitle {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.7);
+    }
+    .status-pill {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.85);
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #aaa;
+      animation: pulse 2s infinite;
+    }
+    .dot.live { background: var(--green); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Main layout ── */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    /* ── QR panel ── */
+    #qr-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      gap: 20px;
+    }
+
+    .waiting-state {
+      text-align: center;
+      color: var(--text-muted);
+    }
+    .waiting-state .icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      display: block;
+      opacity: 0.4;
+    }
+    .waiting-state h2 { font-size: 1.3rem; margin-bottom: 8px; color: var(--text); }
+    .waiting-state p { font-size: 0.9rem; }
+
+    #qr-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+      max-width: 520px;
+    }
+    #qr-container.active { display: flex; }
+
+    .person-badge {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      text-align: center;
+      width: 100%;
+    }
+    .person-badge .name {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--eu-yellow);
+      letter-spacing: 0.5px;
+    }
+    .person-badge .meta {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .person-badge .enrollment {
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .qr-frame {
+      background: white;
+      padding: 16px;
+      border-radius: var(--radius);
+      box-shadow: 0 0 0 4px var(--eu-yellow), 0 8px 40px rgba(0,0,0,0.6);
+      position: relative;
+      transition: all 0.3s ease;
+    }
+    .qr-frame img, .qr-frame svg {
+      display: block;
+      width: 320px;
+      height: 320px;
+    }
+    .qr-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(39, 174, 96, 0.92);
+      border-radius: calc(var(--radius) - 4px);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      color: white;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+    .qr-overlay.show { display: flex; }
+    .qr-overlay .check { font-size: 56px; }
+
+    .scan-instruction {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 340px;
+    }
+    .scan-instruction strong { color: var(--text); }
+
+    .offer-status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      padding: 10px 20px;
+      border-radius: 99px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+    .offer-status .step { color: var(--text-muted); }
+    .offer-status .step.done { color: var(--green); }
+    .offer-status .step.active { color: var(--eu-yellow); font-weight: 600; }
+    .sep { color: var(--border); }
+
+    .offer-uri {
+      font-size: 0.7rem;
+      font-family: monospace;
+      color: var(--text-muted);
+      word-break: break-all;
+      text-align: center;
+      max-width: 460px;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      border-left: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #claim-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .claim-row {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+    .claim-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+    .claim-value {
+      font-size: 0.92rem;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .claim-value.bool-true { color: var(--green); }
+    .claim-value.bool-false { color: var(--red); }
+
+    /* ── Event log ── */
+    #log-panel {
+      border-top: 1px solid var(--border);
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .log-entry {
+      font-size: 0.78rem;
+      font-family: monospace;
+      color: var(--text-muted);
+      display: flex;
+      gap: 8px;
+    }
+    .log-entry .log-time { color: var(--border); flex-shrink: 0; }
+    .log-entry.info .log-msg { color: var(--text-muted); }
+    .log-entry.success .log-msg { color: var(--green); }
+    .log-entry.warn .log-msg { color: var(--orange); }
+
+    /* ── Footer ── */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 24px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 700px) {
+      main { grid-template-columns: 1fr; }
+      #sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="eu-stars">★★★★★★★★★★★★</span>
+  <div>
+    <h1>EU PID Issuer Station</h1>
+    <div class="subtitle">OpenID4VCI · SD-JWT VC · eu.europa.ec.eudi.pid.1</div>
+  </div>
+  <div class="status-pill">
+    <div class="dot live" id="conn-dot"></div>
+    <span id="conn-label">Live</span>
+  </div>
+</header>
+
+<main>
+  <!-- QR Panel -->
+  <div id="qr-panel">
+
+    <!-- Waiting state -->
+    <div class="waiting-state" id="waiting-state">
+      <span class="icon">⏳</span>
+      <h2>Waiting for enrollment</h2>
+      <p>Monitoring <code>{{ watch_path if watch_path else 'watch path' }}</code> for new IDEMIA exports…</p>
+    </div>
+
+    <!-- Active QR state -->
+    <div id="qr-container">
+      <div class="person-badge">
+        <div class="name" id="person-name">—</div>
+        <div class="meta" id="person-meta">—</div>
+        <div class="enrollment" id="person-enrollment">—</div>
+      </div>
+
+      <div class="qr-frame">
+        <img id="qr-img" src="" alt="QR Code" style="display:none">
+        <div id="qr-fallback" style="width:320px;height:320px;display:flex;align-items:center;justify-content:center;color:#666;font-size:0.8rem">Generating…</div>
+        <div class="qr-overlay" id="qr-overlay">
+          <span class="check">✓</span>
+          <span>Credential Issued!</span>
+        </div>
+      </div>
+
+      <p class="scan-instruction">
+        Scan with your <strong>EU Digital Identity Wallet</strong> to receive your Personal ID credential.
+      </p>
+
+      <div class="offer-status">
+        <span class="step" id="step-ready">QR Ready</span>
+        <span class="sep">›</span>
+        <span class="step" id="step-token">Token</span>
+        <span class="sep">›</span>
+        <span class="step" id="step-issued">Issued</span>
+      </div>
+
+      <div class="offer-uri" id="offer-uri-display">—</div>
+    </div>
+
+  </div>
+
+  <!-- Sidebar: claim details -->
+  <div id="sidebar">
+    <div class="sidebar-header">PID Claims</div>
+    <div id="claim-list">
+      <div style="color: var(--text-muted); font-size:0.85rem; padding:8px; text-align:center;">
+        Scan to populate…
+      </div>
+    </div>
+    <div id="log-panel">
+      <!-- event log entries injected here -->
+    </div>
+  </div>
+</main>
+
+<footer>
+  <span>Issuer: <code>{{ issuer_url }}</code></span>
+  <span>OID4VCI Pre-Authorized Code Flow · SD-JWT VC</span>
+</footer>
+
+<script>
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  function ts() {
+    return new Date().toLocaleTimeString('en', { hour12: false });
+  }
+
+  function addLog(msg, type = 'info') {
+    const log = document.getElementById('log-panel');
+    const e = document.createElement('div');
+    e.className = `log-entry ${type}`;
+    e.innerHTML = `<span class="log-time">${ts()}</span><span class="log-msg">${msg}</span>`;
+    log.prepend(e);
+    // keep last 50
+    while (log.children.length > 50) log.removeChild(log.lastChild);
+  }
+
+  const CLAIM_LABELS = {
+    given_name: 'Given Name',
+    family_name: 'Family Name',
+    birth_date: 'Date of Birth',
+    age_over_18: 'Age ≥ 18',
+    age_in_years: 'Age',
+    age_birth_year: 'Birth Year',
+    gender: 'Gender (ISO 5218)',
+    nationality: 'Nationality',
+    birth_country: 'Country of Birth',
+    birth_city: 'City of Birth',
+    resident_address: 'Address',
+    resident_city: 'City',
+    resident_state: 'State',
+    resident_postal_code: 'Postal Code',
+    resident_country: 'Country',
+    document_number: 'Document No.',
+    issuance_date: 'Issued',
+    expiry_date: 'Expires',
+    issuing_country: 'Issuing Country',
+    issuing_authority: 'Issuing Authority',
+  };
+
+  function renderClaims(pid) {
+    const list = document.getElementById('claim-list');
+    list.innerHTML = '';
+    for (const [key, label] of Object.entries(CLAIM_LABELS)) {
+      const val = pid[key];
+      if (val === undefined || val === null || val === '') continue;
+      const row = document.createElement('div');
+      row.className = 'claim-row';
+      let display = String(val);
+      let cls = '';
+      if (typeof val === 'boolean') {
+        display = val ? '✓ Yes' : '✗ No';
+        cls = val ? 'bool-true' : 'bool-false';
+      }
+      row.innerHTML = `<div class="claim-label">${label}</div><div class="claim-value ${cls}">${display}</div>`;
+      list.appendChild(row);
+    }
+  }
+
+  // ── State machine ─────────────────────────────────────────────────────────
+  let currentOfferId = null;
+  const ISSUER_URL = '{{ issuer_url }}';
+
+  function showOffer(offerId, pidData) {
+    currentOfferId = offerId;
+
+    document.getElementById('waiting-state').style.display = 'none';
+    const container = document.getElementById('qr-container');
+    container.classList.add('active');
+
+    // Person badge
+    const name = [pidData.given_name, pidData.family_name].filter(Boolean).join(' ') || '—';
+    document.getElementById('person-name').textContent = name;
+    document.getElementById('person-meta').textContent =
+      [pidData.birth_date, pidData.nationality].filter(Boolean).join('  ·  ') || '';
+    document.getElementById('person-enrollment').textContent =
+      pidData.document_number ? `Enrollment: ${pidData.document_number}` : '';
+
+    // QR image
+    const img = document.getElementById('qr-img');
+    const fb = document.getElementById('qr-fallback');
+    const qrSrc = `${ISSUER_URL}/qr/${offerId}.svg`;
+    img.onload = () => { fb.style.display = 'none'; img.style.display = 'block'; };
+    img.onerror = () => {
+      // fallback to PNG
+      img.src = `${ISSUER_URL}/qr/${offerId}.png`;
+    };
+    img.src = qrSrc;
+
+    // URI
+    const offerUri = `${ISSUER_URL}/offers/${offerId}`;
+    document.getElementById('offer-uri-display').textContent =
+      `openid-credential-offer://?credential_offer_uri=${offerUri}`;
+
+    // Steps – reset
+    setStep('ready');
+
+    // Reset overlay
+    document.getElementById('qr-overlay').classList.remove('show');
+
+    // Claims
+    renderClaims(pidData);
+
+    addLog(`New offer: ${name} [${offerId}]`, 'info');
+  }
+
+  function setStep(step) {
+    const steps = { ready: 'step-ready', token: 'step-token', issued: 'step-issued' };
+    const order = ['ready', 'token', 'issued'];
+    const idx = order.indexOf(step);
+    order.forEach((s, i) => {
+      const el = document.getElementById(steps[s]);
+      el.className = 'step' + (i < idx ? ' done' : i === idx ? ' active' : '');
+    });
+  }
+
+  // ── SSE ───────────────────────────────────────────────────────────────────
+  function connectSSE() {
+    const es = new EventSource(`${ISSUER_URL}/events`);
+    const dot = document.getElementById('conn-dot');
+    const label = document.getElementById('conn-label');
+
+    es.onopen = () => {
+      dot.classList.add('live');
+      label.textContent = 'Live';
+      addLog('Connected to issuer', 'success');
+    };
+
+    es.onerror = () => {
+      dot.classList.remove('live');
+      label.textContent = 'Reconnecting…';
+      setTimeout(connectSSE, 3000);
+      es.close();
+    };
+
+    es.addEventListener('new_offer', e => {
+      const d = JSON.parse(e.data);
+      showOffer(d.offer_id, d.pid_data);
+    });
+
+    es.addEventListener('current_offer', e => {
+      const d = JSON.parse(e.data);
+      if (d.status === 'pending') showOffer(d.offer_id, d.pid_data);
+    });
+
+    es.addEventListener('token_issued', e => {
+      const d = JSON.parse(e.data);
+      if (d.offer_id === currentOfferId) {
+        setStep('token');
+        addLog('Wallet obtained token — downloading credential…', 'info');
+      }
+    });
+
+    es.addEventListener('credential_issued', e => {
+      const d = JSON.parse(e.data);
+      if (d.offer_id === currentOfferId) {
+        setStep('issued');
+        document.getElementById('qr-overlay').classList.add('show');
+        addLog(`Credential issued to ${d.name || 'wallet'}`, 'success');
+      }
+    });
+  }
+
+  connectSSE();
+  addLog('PID Issuer Station ready', 'info');
+</script>
+</body>
+</html>
