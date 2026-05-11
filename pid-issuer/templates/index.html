@@ -490,53 +490,54 @@
   }
 
   // ── SSE ───────────────────────────────────────────────────────────────────
-  function connectSSE() {
-    const es = new EventSource(`${ISSUER_URL}/events`);
-    const dot = document.getElementById('conn-dot');
-    const label = document.getElementById('conn-label');
+  // Use a single persistent EventSource — the browser auto-reconnects natively.
+  // We only flip the UI indicator; we never manually close and reopen.
+  const dot = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  let sseReady = false;
 
-    es.onopen = () => {
-      dot.classList.add('live');
-      label.textContent = 'Live';
-      addLog('Connected to issuer', 'success');
-    };
+  const es = new EventSource('/events');   // relative URL — works on any host/port
 
-    es.onerror = () => {
-      dot.classList.remove('live');
-      label.textContent = 'Reconnecting…';
-      setTimeout(connectSSE, 3000);
-      es.close();
-    };
+  es.onopen = () => {
+    sseReady = true;
+    dot.classList.add('live');
+    label.textContent = 'Live';
+    if (!sseReady) addLog('Connected to issuer', 'success');
+  };
 
-    es.addEventListener('new_offer', e => {
-      const d = JSON.parse(e.data);
-      showOffer(d.offer_id, d.pid_data);
-    });
+  es.onerror = () => {
+    dot.classList.remove('live');
+    label.textContent = 'Reconnecting…';
+    // EventSource will retry automatically — nothing else needed
+  };
 
-    es.addEventListener('current_offer', e => {
-      const d = JSON.parse(e.data);
-      if (d.status === 'pending') showOffer(d.offer_id, d.pid_data);
-    });
+  es.addEventListener('new_offer', e => {
+    const d = JSON.parse(e.data);
+    showOffer(d.offer_id, d.pid_data);
+  });
 
-    es.addEventListener('token_issued', e => {
-      const d = JSON.parse(e.data);
-      if (d.offer_id === currentOfferId) {
-        setStep('token');
-        addLog('Wallet obtained token — downloading credential…', 'info');
-      }
-    });
+  es.addEventListener('current_offer', e => {
+    const d = JSON.parse(e.data);
+    if (d.status === 'pending') showOffer(d.offer_id, d.pid_data);
+  });
 
-    es.addEventListener('credential_issued', e => {
-      const d = JSON.parse(e.data);
-      if (d.offer_id === currentOfferId) {
-        setStep('issued');
-        document.getElementById('qr-overlay').classList.add('show');
-        addLog(`Credential issued to ${d.name || 'wallet'}`, 'success');
-      }
-    });
-  }
+  es.addEventListener('token_issued', e => {
+    const d = JSON.parse(e.data);
+    if (d.offer_id === currentOfferId) {
+      setStep('token');
+      addLog('Wallet obtained token — downloading credential…', 'info');
+    }
+  });
 
-  connectSSE();
+  es.addEventListener('credential_issued', e => {
+    const d = JSON.parse(e.data);
+    if (d.offer_id === currentOfferId) {
+      setStep('issued');
+      document.getElementById('qr-overlay').classList.add('show');
+      addLog(`Credential issued to ${d.name || 'wallet'}`, 'success');
+    }
+  });
+
   addLog('PID Issuer Station ready', 'info');
 </script>
 </body>

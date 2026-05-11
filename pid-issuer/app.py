@@ -381,7 +381,7 @@ def sse():
         try:
             while True:
                 try:
-                    msg = q.get(timeout=25)
+                    msg = q.get(timeout=10)
                     yield msg
                 except queue.Empty:
                     yield ": keepalive\n\n"
@@ -394,8 +394,16 @@ def sse():
                 except ValueError:
                     pass
 
-    return Response(stream(), mimetype="text/event-stream",
-                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return Response(
+        stream(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-store",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream; charset=utf-8",
+        },
+    )
 
 
 @app.route("/api/offers")
@@ -483,8 +491,11 @@ def create_offer(pid_data: dict, source_file: str) -> str:
 
 def _scan_directory():
     """
-    Walk WATCH_PATH/<YYYYMMDD>/<uuid>/<single>.json
-    and process any new JSON files not yet seen.
+    Recursively find JSON files under WATCH_PATH.
+    Handles all of these layouts:
+      WATCH_PATH/YYYYMMDD/file.json
+      WATCH_PATH/YYYYMMDD/subfolder/file.json
+      WATCH_PATH/YYYYMMDD/subfolder/deeper/file.json
     """
     if not WATCH_PATH.exists():
         return
@@ -492,14 +503,11 @@ def _scan_directory():
     for date_dir in sorted(WATCH_PATH.iterdir()):
         if not date_dir.is_dir() or not date_dir.name.isdigit():
             continue
-        for uuid_dir in date_dir.iterdir():
-            if not uuid_dir.is_dir():
+        for json_file in date_dir.rglob("*.json"):
+            fpath = str(json_file)
+            if fpath in processed_files:
                 continue
-            for json_file in uuid_dir.glob("*.json"):
-                fpath = str(json_file)
-                if fpath in processed_files:
-                    continue
-                _process_file(json_file)
+            _process_file(json_file)
 
 
 def _process_file(json_file: Path):
