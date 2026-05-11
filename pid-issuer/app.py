@@ -54,25 +54,51 @@ KID = "pid-issuer-key-1"
 
 SCAN_INTERVAL = 5          # seconds between directory scans
 TOKEN_TTL = 600            # access token lifetime (10 min)
-OFFER_TTL = 300            # credential offer lifetime (5 min)
+OFFER_TTL = 1800           # credential offer lifetime (30 min)
 CREDENTIAL_TTL = 5 * 365 * 86400  # 5-year PID validity
 
 # ---------------------------------------------------------------------------
 # Detect local IP (Android wallet needs a routable address, not localhost)
 # ---------------------------------------------------------------------------
 def _get_local_ip() -> str:
+    # Try reaching a public IP so the OS picks the right outbound interface.
+    for target in (("8.8.8.8", 80), ("1.1.1.1", 80)):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(target)
+            ip = s.getsockname()[0]
+            s.close()
+            if ip and not ip.startswith("127."):
+                return ip
+        except Exception:
+            pass
+    # Fallback: iterate all network interfaces for the first non-loopback IPv4.
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
-    except Exception:
-        return "127.0.0.1"
-    finally:
-        s.close()
+        import netifaces  # optional; present on most setups
+        for iface in netifaces.interfaces():
+            addrs = netifaces.ifaddresses(iface).get(netifaces.AF_INET, [])
+            for addr in addrs:
+                ip = addr.get("addr", "")
+                if ip and not ip.startswith("127."):
+                    return ip
+    except ImportError:
+        pass
+    log.warning(
+        "Could not determine a routable local IP — wallet may not be able to reach "
+        "this server. Set ISSUER_URL env var to override (e.g. http://192.168.1.10:8080)."
+    )
+    return "127.0.0.1"
 
 
 LOCAL_IP = _get_local_ip()
-ISSUER_URL = f"http://{LOCAL_IP}:{ISSUER_PORT}"
+# ISSUER_URL env var lets operators hard-code the address shown in QR codes.
+ISSUER_URL = os.environ.get("ISSUER_URL", f"http://{LOCAL_IP}:{ISSUER_PORT}").rstrip("/")
+if "127.0.0.1" in ISSUER_URL or "localhost" in ISSUER_URL:
+    log.warning(
+        "ISSUER_URL is %s — wallets on other devices cannot reach localhost. "
+        "Set the ISSUER_URL environment variable to http://<your-LAN-IP>:%d",
+        ISSUER_URL, ISSUER_PORT,
+    )
 log.info("Issuer URL: %s", ISSUER_URL)
 
 # ---------------------------------------------------------------------------
