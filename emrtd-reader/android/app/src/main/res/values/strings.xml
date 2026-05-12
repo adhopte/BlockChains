@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">eMRTD Reader</string>
+    <string name="scan_mrz">Scan MRZ (Passport Data Page)</string>
+    <string name="hold_to_nfc">Hold passport to back of phone (NFC)</string>
+    <string name="reading">Reading passport chip…</string>
+    <string name="validating">Validating with server…</string>
+    <string name="error_nfc_not_supported">NFC is not supported on this device</string>
+    <string name="error_nfc_disabled">Please enable NFC in Settings</string>
+    <string name="error_not_iso_dep">Not an ISO-DEP NFC tag</string>
+    <string name="error_scan_mrz_first">Please scan MRZ first</string>
+</resources>
